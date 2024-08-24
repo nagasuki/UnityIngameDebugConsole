@@ -1983,8 +1983,21 @@ namespace IngameDebugConsole
 
         public void SendReportBug(DebugLogItem logItem)
         {
-            logItem.ReportBug(descriptionInputField.text, "Window", "", expectedBehaviourInputField.text, actualBehaviourInputField.text);
+            logItem.ReportBug(descriptionInputField.text, "Window", GetStepDetail(), expectedBehaviourInputField.text, actualBehaviourInputField.text);
             CloseReportBug();
+        }
+
+        public string GetStepDetail()
+        {
+            string stepDetail = "";
+
+            for (int i = 0; i < stepContentParent.childCount; i++)
+            {
+                var detail = stepContentParent.GetChild(i).GetComponent<StepContent>().StepContentDetail + "\n";
+                stepDetail += $"{i + 1}. {detail}";
+            }
+
+            return stepDetail;
         }
     }
 }

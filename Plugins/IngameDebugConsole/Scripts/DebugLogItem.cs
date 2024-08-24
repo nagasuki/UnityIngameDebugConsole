@@ -360,9 +360,9 @@ namespace IngameDebugConsole
             string formattedDescription =
                 "📖 **Description:**\n" + bugDescription + "\n\n" +
                 "🕹️ **Platform:**\n" + platform + "\n\n" +
-                "🎯 **Steps to Reproduce:**\n" + stepsToReproduce + "\n\n" +
+                "🎯 **Steps to Reproduce:**\n" + stepsToReproduce + "\n" +
                 "📌 **Expected Behavior:**\n" + expectedBehavior + "\n\n" +
-                "🚫 **Actual Behavior:**\n" + actualBehavior;
+                "🚫 **Actual Behavior:**\n" + actualBehavior + "\n\n";
 
             string jsonPayload = $@"
         {{
