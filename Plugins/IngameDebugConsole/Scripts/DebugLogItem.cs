@@ -4,13 +4,8 @@ using UnityEngine.EventSystems;
 using System.Text;
 using UnityEngine.Networking;
 using System.Collections;
-using Codice.Client.Common;
 using System;
 using System.IO;
-
-
-
-
 
 #if UNITY_EDITOR
 using UnityEditor;
