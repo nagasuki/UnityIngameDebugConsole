@@ -85,6 +85,13 @@ However, there is some flexibility in the syntax, as well:
 - You can enter 1 instead of true, or 0 instead of false
 - You can enter `null` for null GameObject and/or Component parameters
 
+### New Feature Bug Report
+
+![image](https://github.com/user-attachments/assets/a34ceb04-465f-4192-a539-d9810383b818)
+
+![image](https://github.com/user-attachments/assets/e4d103a4-3682-405e-a1ad-1b8645289aa6)
+
+
 ### Registering Custom Commands
 
 If all the parameters of a function are of supported types, you can register the function to the console in four different ways (all of these methods take optional string parameter(s) at the end to specify custom display names for the registered function's parameter(s)):
