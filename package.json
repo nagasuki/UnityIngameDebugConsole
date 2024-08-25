@@ -1,7 +1,7 @@
 {
   "name": "com.nagasuki.ingamedebugconsole",
   "displayName": "In-game Debug Console",
-  "version": "1.7.1",
+  "version": "1.0.0",
   "documentationUrl": "https://github.com/nagasuki/UnityIngameDebugConsole",
   "changelogUrl": "https://github.com/nagasuki/UnityIngameDebugConsole/releases",
   "licensesUrl": "https://github.com/nagasuki/UnityIngameDebugConsole/blob/master/LICENSE.txt",
