@@ -354,7 +354,7 @@ namespace IngameDebugConsole
         private InputField expectedBehaviourInputField;
         [SerializeField]
         private Toggle captureToggle;
-        
+
         private bool isCapture;
         private int counterStep = 0;
         private List<StepContent> stepContents = new List<StepContent>();
@@ -1986,7 +1986,7 @@ namespace IngameDebugConsole
             content.SetStep(counterStep, "");
             content.RemoveButton.onClick.AddListener(() => RemoveStepContent(content));
             stepContents.Add(content);
-            
+
             if (counterStep > 1)
             {
                 stepContents[counterStep - 2].RemoveButton.interactable = false;
@@ -1997,7 +1997,7 @@ namespace IngameDebugConsole
         {
             stepContents.Remove(stepContent);
             Destroy(stepContent.gameObject);
-            
+
             if (counterStep > 1)
             {
                 stepContents[counterStep - 2].RemoveButton.interactable = true;

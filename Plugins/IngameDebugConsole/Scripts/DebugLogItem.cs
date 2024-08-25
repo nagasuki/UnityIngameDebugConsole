@@ -8,7 +8,6 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using UnityGoogleDrive;
-using System.Threading.Tasks;
 
 
 
@@ -303,8 +302,9 @@ namespace IngameDebugConsole
             File.WriteAllText(logPath, logEntry.ToString());
 
             // Upload log to Google Drive
+            Guid newGuidLog = Guid.NewGuid();
             string logLink = null;
-            string logName = GUID.Generate().ToString() + ".txt";
+            string logName = newGuidLog.ToString() + ".txt";
             yield return StartCoroutine(UploadFileToGoogleDrive(logName, GoogleDriveFolderIdLogs, logPath, link => logLink = link));
 
             if (IsCapture)
@@ -317,8 +317,9 @@ namespace IngameDebugConsole
                 yield return new WaitForSeconds(1f);
 
                 // Upload screenshot to Google Drive
+                Guid newGuidScreenshot = Guid.NewGuid();
                 string screenshotLink = null;
-                string screenshotName = GUID.Generate().ToString() + ".png";
+                string screenshotName = newGuidScreenshot.ToString() + ".png";
                 yield return StartCoroutine(UploadFileToGoogleDrive(screenshotName, GoogleDriveFolderIdScreenshots, screenshotPath, link => screenshotLink = link));
 
                 // Send the bug report with the screenshot link
