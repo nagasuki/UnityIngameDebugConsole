@@ -6,6 +6,11 @@ using UnityEngine.Networking;
 using System.Collections;
 using System;
 using System.IO;
+using System.Collections.Generic;
+using UnityGoogleDrive;
+using System.Threading.Tasks;
+
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -112,13 +117,11 @@ namespace IngameDebugConsole
         [HideInInspector]
         public string WebhookURL = "";
         [HideInInspector]
-        public string ChannelId = "";
+        public string GoogleDriveFolderIdLogs = "";
         [HideInInspector]
-        public string githubToken = "YOUR_GITHUB_TOKEN"; // Replace with your GitHub Personal Access Token
+        public string GoogleDriveFolderIdScreenshots = "";
         [HideInInspector]
-        public string githubRepo = "YOUR_GITHUB_USERNAME/YOUR_REPOSITORY"; // Replace with your GitHub repository details
-        [HideInInspector]
-        public string githubBranch = "YOUR_BRANCH"; // Replace with your target branch
+        public bool IsCapture = false;
 
         public void Initialize(DebugLogRecycledListView listView)
         {
@@ -280,91 +283,106 @@ namespace IngameDebugConsole
 #endif
         }
 
-        public void ReportBug(string bugDescription, string platform, string stepsToReproduce, string expectedBehavior, string actualBehavior)
+        // Report Bug Button
+        public void ReportBug(string bugDescription, string platform, string stepsToReproduce, string expectedBehavior, bool isCapture)
         {
-            if (WebhookURL != null)
+            if (!string.IsNullOrEmpty(GoogleDriveFolderIdLogs) && !string.IsNullOrEmpty(GoogleDriveFolderIdScreenshots))
             {
-                StartCoroutine(CaptureAndReportBug(bugDescription, platform, stepsToReproduce, expectedBehavior, actualBehavior));
+                IsCapture = isCapture;
+                StartCoroutine(CaptureAndReportBug(bugDescription, platform, stepsToReproduce, expectedBehavior));
             }
             else
             {
-                Debug.LogError("Can't report bug, Webhook URL is not set please set in IngameDebugConsole prefab.");
+                Debug.LogError("Can't report bug, Please set google drive settings.");
             }
         }
 
-        private IEnumerator CaptureAndReportBug(string bugDescription, string platform, string stepsToReproduce, string expectedBehavior, string actualBehavior)
+        private IEnumerator CaptureAndReportBug(string bugDescription, string platform, string stepsToReproduce, string expectedBehavior)
         {
-            // Capture screenshot
-            string screenshotPath = Path.Combine(Application.persistentDataPath, "screenshot.png");
-            ScreenCapture.CaptureScreenshot(screenshotPath);
+            string logPath = Path.Combine(Application.persistentDataPath, "log.txt");
+            File.WriteAllText(logPath, logEntry.ToString());
 
-            // Wait for the screenshot to be saved
-            yield return new WaitForSeconds(1f);
+            // Upload log to Google Drive
+            string logLink = null;
+            string logName = GUID.Generate().ToString() + ".txt";
+            yield return StartCoroutine(UploadFileToGoogleDrive(logName, GoogleDriveFolderIdLogs, logPath, link => logLink = link));
 
-            // Upload screenshot to Discord
-            string screenshotLink = null;
-            string name = GUID.Generate().ToString() + ".png";
-            yield return StartCoroutine(UploadScreenshotToGitHub(name, screenshotPath, link => screenshotLink = link));
+            if (IsCapture)
+            {
+                // Capture screenshot
+                string screenshotPath = Path.Combine(Application.persistentDataPath, "screenshot.png");
+                ScreenCapture.CaptureScreenshot(screenshotPath);
 
-            // Send the bug report with the screenshot link
-            yield return StartCoroutine(SendBugReport(bugDescription, platform, stepsToReproduce, expectedBehavior, actualBehavior, screenshotLink));
+                // Wait for the screenshot to be saved
+                yield return new WaitForSeconds(1f);
 
-            // Clean up the file
-            File.Delete(screenshotPath);
+                // Upload screenshot to Google Drive
+                string screenshotLink = null;
+                string screenshotName = GUID.Generate().ToString() + ".png";
+                yield return StartCoroutine(UploadFileToGoogleDrive(screenshotName, GoogleDriveFolderIdScreenshots, screenshotPath, link => screenshotLink = link));
+
+                // Send the bug report with the screenshot link
+                yield return StartCoroutine(SendBugReport(bugDescription, platform, stepsToReproduce, expectedBehavior, logLink, screenshotLink));
+
+                // Clean up the file
+                File.Delete(logPath);
+                File.Delete(screenshotPath);
+            }
+            else
+            {
+                // Send the bug report without the screenshot
+                yield return StartCoroutine(SendBugReport(bugDescription, platform, stepsToReproduce, expectedBehavior, logLink, null));
+
+                // Clean up the file
+                File.Delete(logPath);
+            }
         }
 
-        private IEnumerator UploadScreenshotToGitHub(string fileNameToSave, string filePath, System.Action<string> onComplete)
+        private IEnumerator UploadFileToGoogleDrive(string fileName, string folderId, string filePath, System.Action<string> onComplete)
         {
             byte[] fileData = File.ReadAllBytes(filePath);
-            string base64File = System.Convert.ToBase64String(fileData);
-            string fileName = fileNameToSave;
-            string url = $"https://api.github.com/repos/{githubRepo}/contents/BugScreenShots/{fileName}";
 
-            string jsonPayload = $@"
-        {{
-            ""message"": ""Upload {fileName} to BugScreenShots folder"",
-            ""content"": ""{base64File}"",
-            ""branch"": ""{githubBranch}""
-        }}";
-
-            using (UnityWebRequest www = new UnityWebRequest(url, "PUT"))
+            var file = new UnityGoogleDrive.Data.File
             {
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-                www.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                www.downloadHandler = new DownloadHandlerBuffer();
-                www.SetRequestHeader("Authorization", "token " + githubToken);
-                www.SetRequestHeader("Content-Type", "application/json");
-                www.SetRequestHeader("User-Agent", "Unity");
+                Name = fileName,
+                Content = fileData,
+                Parents = new List<string> { folderId } // Specify the folder ID here
+            };
 
-                yield return www.SendWebRequest();
+            var request = GoogleDriveFiles.Create(file).Send();
 
-                if (www.result != UnityWebRequest.Result.Success)
-                {
-                    Debug.LogError("Error uploading screenshot to GitHub: " + www.error);
-                    onComplete(null);
-                }
-                else
-                {
-                    Debug.Log("Screenshot uploaded to GitHub successfully!");
-                    string link = $"https://raw.githubusercontent.com/{githubRepo}/{githubBranch}/BugScreenShots/{fileName}";
-                    onComplete(link);
-                }
+            yield return request;
+
+            if (request.GoogleDriveRequest.IsError)
+            {
+                Debug.LogError("Error uploading file: " + request.GoogleDriveRequest.Error);
+                onComplete?.Invoke(null);
+            }
+            else
+            {
+                Debug.Log("File uploaded to Google Drive successfully!");
+                string link = request.GoogleDriveRequest.ResponseData.Id; // Process the response to extract the file ID
+                onComplete("https://drive.google.com/file/d/" + link + "/view");
             }
         }
 
-        private IEnumerator SendBugReport(string bugDescription, string platform, string stepsToReproduce, string expectedBehavior, string actualBehavior, string screenshotLink)
+
+        private IEnumerator SendBugReport(string bugDescription, string platform, string stepsToReproduce, string expectedBehavior, string logLink, string screenshotLink)
         {
-            string dateTime = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " Thailand";
+            string dateTime = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " (UTC +7)";
             string reporterName = "Nagasuki"; // Replace with the actual reporter name
 
             string formattedDescription =
                 "📖 **Description:**\n" + bugDescription + "\n\n" +
                 "🕹️ **Platform:**\n" + platform + "\n\n" +
                 "🎯 **Steps to Reproduce:**\n" + stepsToReproduce + "\n" +
-                "📌 **Expected Behavior:**\n" + expectedBehavior + "\n\n" +
-                "🚫 **Actual Behavior:**\n" + actualBehavior + "\n\n";
+                "📌 **Expected Behavior:**\n" + expectedBehavior + "\n\n";
 
-            string jsonPayload = $@"
+            string jsonPayload = "";
+
+            if (IsCapture)
+            {
+                jsonPayload = $@"
         {{
             ""content"": null,
             ""embeds"": [
@@ -380,12 +398,12 @@ namespace IngameDebugConsole
                         }},
                         {{
                             ""name"": ""📜 Log Exeption"",
-                            ""value"": ""{EscapeJson(logEntry.ToString())}"",
+                            ""value"": ""[Log.txt]({EscapeJson(logLink)})"",
                             ""inline"": false
                         }},
                         {{
                             ""name"": ""📷 Screenshot"",
-                            ""value"": ""[Screenshot Link]({EscapeJson(screenshotLink)})"",
+                            ""value"": ""[Screenshot.png]({EscapeJson(screenshotLink)})"",
                             ""inline"": false
                         }}
                     ],
@@ -395,6 +413,36 @@ namespace IngameDebugConsole
                 }}
             ]
         }}";
+            }
+            else
+            {
+                jsonPayload = $@"
+        {{
+            ""content"": null,
+            ""embeds"": [
+                {{
+                    ""title"": ""🐞 Bug Report"",
+                    ""description"": ""{EscapeJson(formattedDescription)}"",
+                    ""color"": 14177041,
+                    ""fields"": [
+                        {{
+                            ""name"": ""📅 Date & Time"",
+                            ""value"": ""{dateTime}"",
+                            ""inline"": false
+                        }},
+                        {{
+                            ""name"": ""📜 Log Exeption"",
+                            ""value"": ""[Log.txt]({EscapeJson(logLink)})"",
+                            ""inline"": false
+                        }}
+                    ],
+                    ""footer"": {{
+                        ""text"": ""Reported by: {EscapeJson(reporterName)}""
+                    }}
+                }}
+            ]
+        }}";
+            }
 
             //Debug.Log("JSON Payload: " + jsonPayload); // Print JSON to debug
 

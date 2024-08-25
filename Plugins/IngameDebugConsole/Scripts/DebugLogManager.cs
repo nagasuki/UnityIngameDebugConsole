@@ -5,6 +5,10 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.Networking;
+using UnityGoogleDrive;
+
+
 #if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
 using UnityEngine.InputSystem;
 #endif
@@ -45,22 +49,6 @@ namespace IngameDebugConsole
     public class DebugLogManager : MonoBehaviour
     {
         public static DebugLogManager Instance { get; private set; }
-
-        [Header("Discord Settings")]
-        [SerializeField]
-        [Tooltip("If use Report Bug to Discord, type webhook url here")]
-        private string webhookUrl = "";
-        [SerializeField]
-        [Tooltip("Type channel id here for keep image in discord")]
-        private string chanelId = "";
-
-        [Header("Github Settings")]
-        [SerializeField]
-        private string githubToken = "";
-        [SerializeField]
-        private string githubRepo = "";
-        [SerializeField]
-        private string githubBranch = "";
 
 #pragma warning disable 0649
         [Header("Properties")]
@@ -334,6 +322,19 @@ namespace IngameDebugConsole
         [SerializeField]
         private DebugLogRecycledListView recycledListView;
 
+        [Header("Discord Settings")]
+        [SerializeField]
+        [Tooltip("If use Report Bug to Discord, type webhook url here")]
+        private string webhookUrl = "";
+
+        [Header("Google Drive Settings")]
+        [SerializeField]
+        [Tooltip("If use Report Bug to Discord, type Logs Folder ID here")]
+        private string googleDriveFolderIdLogs = "";
+        [SerializeField]
+        [Tooltip("If use Report Bug to Discord, type Screenshots Folder ID  here")]
+        private string googleDriveFolderIdScreenshots = "";
+
         [Header("Report Bug Panel")]
         [SerializeField]
         private CanvasGroup reportBugCanvasGroup;
@@ -352,12 +353,11 @@ namespace IngameDebugConsole
         [SerializeField]
         private InputField expectedBehaviourInputField;
         [SerializeField]
-        private InputField actualBehaviourInputField;
-
-        [SerializeField]
-        private List<string> steps = new List<string>();
-
+        private Toggle captureToggle;
+        
+        private bool isCapture;
         private int counterStep = 0;
+        private List<StepContent> stepContents = new List<StepContent>();
 #pragma warning restore 0649
 
         private bool isLogWindowVisible = true;
@@ -1920,22 +1920,16 @@ namespace IngameDebugConsole
                 if (webhookUrl != null)
                 {
                     newLogItem.WebhookURL = webhookUrl;
-                    newLogItem.ChannelId = chanelId;
                 }
 
-                if (githubToken != null)
+                if (googleDriveFolderIdLogs != null)
                 {
-                    newLogItem.githubToken = githubToken;
+                    newLogItem.GoogleDriveFolderIdLogs = googleDriveFolderIdLogs;
                 }
 
-                if (githubRepo != null)
+                if (googleDriveFolderIdScreenshots != null)
                 {
-                    newLogItem.githubRepo = githubRepo;
-                }
-
-                if (githubBranch != null)
-                {
-                    newLogItem.githubBranch = githubBranch;
+                    newLogItem.GoogleDriveFolderIdScreenshots = googleDriveFolderIdScreenshots;
                 }
             }
 
@@ -1944,6 +1938,11 @@ namespace IngameDebugConsole
 
         public void OpenReportBug(DebugLogItem logItem)
         {
+            if (!PlayerPrefs.HasKey("GoogleDriveAccessToken") && !PlayerPrefs.HasKey("GoogleDriveRefreshToken"))
+            {
+                AuthController.RefreshAccessToken();
+            }
+
             HideLogWindow();
             reportBugCanvasGroup.alpha = 1f;
             reportBugCanvasGroup.interactable = true;
@@ -1952,6 +1951,8 @@ namespace IngameDebugConsole
 
             var content = Instantiate(stepContentPrefab, stepContentParent);
             content.SetStep(counterStep, "");
+            content.RemoveButton.onClick.AddListener(() => RemoveStepContent(content));
+            stepContents.Add(content);
 
             addStepButton.onClick.AddListener(AddStepContent);
             sendReportButton.onClick.AddListener(() => SendReportBug(logItem));
@@ -1964,6 +1965,10 @@ namespace IngameDebugConsole
             reportBugCanvasGroup.interactable = false;
             reportBugCanvasGroup.blocksRaycasts = false;
             counterStep = 0;
+
+            descriptionInputField.text = string.Empty;
+            expectedBehaviourInputField.text = string.Empty;
+            captureToggle.isOn = false;
 
             addStepButton.onClick.RemoveAllListeners();
             sendReportButton.onClick.RemoveAllListeners();
@@ -1979,11 +1984,32 @@ namespace IngameDebugConsole
             counterStep++;
             var content = Instantiate(stepContentPrefab, stepContentParent);
             content.SetStep(counterStep, "");
+            content.RemoveButton.onClick.AddListener(() => RemoveStepContent(content));
+            stepContents.Add(content);
+            
+            if (counterStep > 1)
+            {
+                stepContents[counterStep - 2].RemoveButton.interactable = false;
+            }
+        }
+
+        public void RemoveStepContent(StepContent stepContent)
+        {
+            stepContents.Remove(stepContent);
+            Destroy(stepContent.gameObject);
+            
+            if (counterStep > 1)
+            {
+                stepContents[counterStep - 2].RemoveButton.interactable = true;
+            }
+
+            counterStep--;
         }
 
         public void SendReportBug(DebugLogItem logItem)
         {
-            logItem.ReportBug(descriptionInputField.text, "Window", GetStepDetail(), expectedBehaviourInputField.text, actualBehaviourInputField.text);
+            string platform = Application.platform.ToString();
+            logItem.ReportBug(descriptionInputField.text, platform, GetStepDetail(), expectedBehaviourInputField.text, isCapture);
             CloseReportBug();
         }
 
@@ -1998,6 +2024,11 @@ namespace IngameDebugConsole
             }
 
             return stepDetail;
+        }
+
+        public void SetCapture()
+        {
+            isCapture = captureToggle.isOn;
         }
     }
 }

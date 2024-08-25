@@ -1,6 +1,18 @@
-﻿{
+{
     "name": "IngameDebugConsole.Runtime",
+    "rootNamespace": "",
     "references": [
-        "Unity.InputSystem"
-    ]
+        "Unity.InputSystem",
+        "Elringus.UnityGoogleDrive.Runtime",
+        "Elringus.UnityGoogleDrive.Editor"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -7,6 +7,7 @@ public class StepContent : MonoBehaviour
     private Text stepNOText;
     [SerializeField]
     private InputField stepContentInputField;
+    public Button RemoveButton;
 
     [HideInInspector]
     public string StepContentDetail;
